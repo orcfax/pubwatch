@@ -230,7 +230,7 @@ async def get_slot() -> str:
     if int(slot) <= int(previous_slot):
         raise PubWatchException("slot hasn't changed since last update")
     with open(
-        os.path.join(tempfile.gettempdir(), SLOTFILE), "w", encoding="utf08"
+        os.path.join(tempfile.gettempdir(), SLOTFILE), "w", encoding="utf-8"
     ) as slot_file:
         slot_file.write(slot)
     return previous_slot
