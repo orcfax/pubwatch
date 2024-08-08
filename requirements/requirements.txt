@@ -1,0 +1,7 @@
+# requirements for the production project.
+
+cbor2~=5.4.6
+certifi==2024.7.4
+pydantic==2.8.2
+requests==2.32.3
+websockets==12.0

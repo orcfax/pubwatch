@@ -1,0 +1,31 @@
+[project]
+
+name = "pubwatch"
+
+dynamic = ["version", "dependencies"]
+
+description = "First-line monitoring of expired Orcfax CER feeds"
+
+readme = "README.md"
+
+requires-python = ">=3.9"
+
+authors = [
+  {name = "R. Spencer", email = "ross@oorcfax.io" },
+]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements/requirements.txt"]}
+
+[project.urls]
+"Homepage" = "https://orcfax.io"
+"Source" = "https://github.com/orcfax/pubwatch"
+
+[project.scripts]
+pubwatch = "pubwatch.pubwatch:main"
+
+[build-system]
+requires = ["setuptools>=67.8.0", "wheel", "setuptools_scm[toml]>=7.1.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
