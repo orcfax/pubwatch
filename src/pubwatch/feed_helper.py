@@ -23,10 +23,10 @@ class FeedSpec:
     type: str = "CER"
 
 
-async def read_feed_data(feed_data: str) -> list[FeedSpec]:
+async def read_feeds_file(feeds_file: str) -> list[FeedSpec]:
     """ "Read feed data into memory for use in the script."""
     feed_dict = None
-    with open(feed_data, "r", encoding="utf-8") as json_feeds:
+    with open(feeds_file, "r", encoding="utf-8") as json_feeds:
         feed_dict = json.loads(json_feeds.read())
     logger.info("cer-feeds version: %s", feed_dict["meta"]["version"])
     logger.info("number of feeds: %s", len(feed_dict["feeds"]))

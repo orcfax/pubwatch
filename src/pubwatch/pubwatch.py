@@ -243,47 +243,86 @@ def create_interval_dict(feeds: list) -> dict:
     """
     intervals = {}
     for feed in feeds:
+        if feed.interval == 0:
+            # Make sure there is a way to null this value.
+            continue
         intervals[f"{feed.type}/{feed.pair}"] = feed.interval - INTERVAL_THRESHOLD
     return intervals
 
 
-async def compare_intervals(intervals: dict, feed_data: list) -> list:
+def get_feed_id(feed_name: str):
+    """Retrieve a simplified feed ID."""
+    return (feed_name.rsplit("/", 1)[0]).upper()
+
+
+def get_on_chain_time(feed_time: str) -> int:
+    """Retrieve on-chain time."""
+    return int(int(feed_time) / 1000)
+
+
+def collate_latest_timestamps(on_chain_feed_data: list) -> dict:
+    """Retrieve all the smallest intervals for all the feeds."""
+    res = {}
+    for item in on_chain_feed_data:
+        feed = get_feed_id(item[0]).upper()
+        on_chain_time = get_on_chain_time(item[1])
+        try:
+            res[feed] = on_chain_time if res[feed] < on_chain_time else res[feed]
+        except KeyError:
+            res[feed] = on_chain_time
+    return res
+
+
+def get_delta(timestamp_1: int, timestamp_2: int):
+    """Return a delta between two values."""
+    if timestamp_1 > timestamp_2:
+        return timestamp_1 - timestamp_2
+    return timestamp_2 - timestamp_1
+
+
+async def compare_intervals(intervals: dict, on_chain_feed_data: list) -> list:
     """Compare feed intervals with what we have on-chain and return a
     list of gaps.
     """
     curr_time = int(time.time())
-    feeds = []
-    for item in feed_data:
-        feed = (item[0].rsplit("/", 1)[0]).upper()
-        on_chain_time = int(int(item[1]) / 1000)
-        delta = curr_time - on_chain_time
-        logger.info("feed '%s' delta: '%s'", feed, delta)
+    latest_feed_timestamps = collate_latest_timestamps(
+        on_chain_feed_data=on_chain_feed_data
+    )
+    required_feeds = []
+    for feed, timestamp in latest_feed_timestamps.items():
+        delta = get_delta(curr_time, timestamp)
         try:
-            if delta < intervals[feed]:
-                feeds.append(feed)
+            if feed in required_feeds:
+                continue
+            if intervals[feed] < delta:
+                logger.info(
+                    "feed: '%s' out of date, delta: '%s', actual: '%s'",
+                    feed,
+                    delta,
+                    timestamp,
+                )
+                required_feeds.append(feed)
+                continue
         except KeyError:
             logger.info("feed: '%s' not being monitored", feed)
-    good_feeds = set(feeds)
-    all_feeds = set(intervals.keys())
-    gaps = list(all_feeds - good_feeds)
-    to_request = [feed.split("/", 1)[1] for feed in gaps]
+    to_request = [feed.split("/", 1)[1] for feed in required_feeds]
     return to_request
 
 
-async def pubwatch(feed_data: str, local: bool = False):
+async def pubwatch(feeds_file: str, local: bool = False):
     """Compare feed data with what should be published and request new
     feeds to be put on-chain if they're missing.
     """
     _ = await get_slot()
-    feeds = await feed_helper.read_feed_data(feed_data=feed_data)
+    feeds = await feed_helper.read_feeds_file(feeds_file=feeds_file)
     fs_policy_id = await get_policy_from_fsp(
         fsp_policy_id=FSP_POLICY, validity_token_name=VALIDITY_TOKEN
     )
     logger.info("policy: %s", fs_policy_id)
     intervals = create_interval_dict(feeds)
-    feed_data = await get_latest_feed_data(fs_policy_id=fs_policy_id)
-    logger.info("unspent datum: %s", len(feed_data))
-    pairs_to_request = await compare_intervals(intervals, feed_data)
+    on_chain_feed_data = await get_latest_feed_data(fs_policy_id=fs_policy_id)
+    logger.info("unspent datum: %s", len(on_chain_feed_data))
+    pairs_to_request = await compare_intervals(intervals, on_chain_feed_data)
     if not pairs_to_request:
         logger.info("no new pairs needed on-chain...")
         return
@@ -294,28 +333,24 @@ async def pubwatch(feed_data: str, local: bool = False):
 
 def main():
     """Primary entry point of this script."""
-
     parser = argparse.ArgumentParser(
         prog="pubwatch",
         description="inspects prices on-chain and looks for anything not posted at the top of the last hour and publishes it",
         epilog="for more information visit https://orcfax.io",
     )
-
     parser.add_argument(
         "--local",
         help="run code locally without ssl",
         required=False,
         action="store_true",
     )
-
     parser.add_argument(
         "--feeds",
         help="feed data describing feeds being monitored (CER-feeds (JSON))",
         required=True,
     )
-
     args = parser.parse_args()
-    asyncio.run(pubwatch(feed_data=args.feeds, local=args.local))
+    asyncio.run(pubwatch(feeds_file=args.feeds, local=args.local))
 
 
 if __name__ == "__main__":
