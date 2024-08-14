@@ -309,7 +309,9 @@ async def compare_intervals(intervals: dict, on_chain_feed_data: list) -> list:
     return to_request
 
 
-async def pubwatch(feeds_file: str, local: bool = False):
+async def pubwatch(
+    feeds_file: str, local: bool = False, nopublish: bool = False
+) -> None:
     """Compare feed data with what should be published and request new
     feeds to be put on-chain if they're missing.
     """
@@ -328,6 +330,9 @@ async def pubwatch(feeds_file: str, local: bool = False):
         return
     logger.info("we need to request the following feeds: %s", pairs_to_request)
     req = json.dumps({"feeds": pairs_to_request})
+    if nopublish:
+        logger.info("not publishing, returning from script...")
+        return
     await request_new_prices(req, local)
 
 
@@ -349,8 +354,16 @@ def main():
         help="feed data describing feeds being monitored (CER-feeds (JSON))",
         required=True,
     )
+    parser.add_argument(
+        "--nopublish",
+        help="provide a way of running this script's logic without publishing",
+        required=False,
+        action="store_true",
+    )
     args = parser.parse_args()
-    asyncio.run(pubwatch(feeds_file=args.feeds, local=args.local))
+    asyncio.run(
+        pubwatch(feeds_file=args.feeds, local=args.local, nopublish=args.nopublish)
+    )
 
 
 if __name__ == "__main__":
