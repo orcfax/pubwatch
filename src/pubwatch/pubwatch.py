@@ -19,6 +19,7 @@ import ssl
 import sys
 import tempfile
 import time
+from datetime import datetime, timedelta
 from typing import Final, Union
 
 import cbor2
@@ -236,7 +237,7 @@ async def get_slot() -> str:
     return previous_slot
 
 
-def create_interval_dict(feeds: list) -> dict:
+def create_interval_dict(feeds: list, hour_boundary: bool = False) -> dict:
     """Create a dict of feeds and intervals minus the interval threshold
     which should ensure that we always have datum within an anticipated
     window.
@@ -246,6 +247,9 @@ def create_interval_dict(feeds: list) -> dict:
         if feed.interval == 0:
             # Make sure there is a way to null this value.
             continue
+        if hour_boundary:
+            intervals[f"{feed.type}/{feed.pair}"] = feed.interval
+            continue
         intervals[f"{feed.type}/{feed.pair}"] = feed.interval - INTERVAL_THRESHOLD
     return intervals
 
@@ -253,6 +257,23 @@ def create_interval_dict(feeds: list) -> dict:
 def get_feed_id(feed_name: str):
     """Retrieve a simplified feed ID."""
     return (feed_name.rsplit("/", 1)[0]).upper()
+
+
+def hour_rounder(time_val: datetime, window: int):
+    """Rounds down to the previous hour based on the current hour."""
+    return time_val.replace(
+        second=0, microsecond=0, minute=0, hour=time_val.hour
+    ) - timedelta(seconds=window - 3600)
+
+
+def hour_baseline_delta(now: int, latest: int, window: int, threshold: int):
+    """Return true false depending on whether our last published datum
+    was on an hourly boundary.
+    """
+    now_dt = datetime.fromtimestamp(now)
+    prev_hour = hour_rounder(now_dt, window)
+    prev_hour_ts = int(prev_hour.timestamp())
+    return (latest + threshold) < prev_hour_ts
 
 
 def get_on_chain_time(feed_time: str) -> int:
@@ -280,14 +301,33 @@ def get_delta(timestamp_1: int, timestamp_2: int):
     return timestamp_2 - timestamp_1
 
 
-async def compare_intervals(intervals: dict, on_chain_feed_data: list) -> list:
-    """Compare feed intervals with what we have on-chain and return a
-    list of gaps.
-    """
-    curr_time = int(time.time())
-    latest_feed_timestamps = collate_latest_timestamps(
-        on_chain_feed_data=on_chain_feed_data
-    )
+async def compare_hourly_intervals(
+    latest_feed_timestamps: dict, curr_time: int, intervals: dict
+):
+    """Compare intervals based on hourly boundaries."""
+    required_feeds = []
+    for feed, timestamp in latest_feed_timestamps.items():
+        try:
+            if feed in required_feeds:
+                continue
+            required = hour_baseline_delta(
+                now=curr_time,
+                latest=timestamp,
+                window=intervals[feed],
+                threshold=INTERVAL_THRESHOLD,
+            )
+            if not required:
+                continue
+            required_feeds.append(feed)
+        except KeyError:
+            logger.info("feed: '%s' not being monitored", feed)
+    return required_feeds
+
+
+async def compare_direct_intervals(
+    latest_feed_timestamps: dict, curr_time: int, intervals: dict
+) -> list:
+    """Compare intervals entirely based on their timestamps."""
     required_feeds = []
     for feed, timestamp in latest_feed_timestamps.items():
         delta = get_delta(curr_time, timestamp)
@@ -305,12 +345,38 @@ async def compare_intervals(intervals: dict, on_chain_feed_data: list) -> list:
                 continue
         except KeyError:
             logger.info("feed: '%s' not being monitored", feed)
+    return required_feeds
+
+
+async def compare_intervals(
+    intervals: dict, on_chain_feed_data: list, hour_boundary: bool = False
+) -> list:
+    """Compare feed intervals with what we have on-chain and return a
+    list of gaps.
+    """
+    curr_time = int(time.time())
+    latest_feed_timestamps = collate_latest_timestamps(
+        on_chain_feed_data=on_chain_feed_data
+    )
+    if hour_boundary:
+        logger.info("using the hour as a boundary")
+        required_feeds = await compare_hourly_intervals(
+            latest_feed_timestamps, curr_time, intervals
+        )
+        to_request = [feed.split("/", 1)[1] for feed in required_feeds]
+        return to_request
+    required_feeds = await compare_direct_intervals(
+        latest_feed_timestamps, curr_time, intervals
+    )
     to_request = [feed.split("/", 1)[1] for feed in required_feeds]
     return to_request
 
 
 async def pubwatch(
-    feeds_file: str, local: bool = False, nopublish: bool = False
+    feeds_file: str,
+    local: bool = False,
+    nopublish: bool = False,
+    hour_boundary: bool = True,
 ) -> None:
     """Compare feed data with what should be published and request new
     feeds to be put on-chain if they're missing.
@@ -321,10 +387,12 @@ async def pubwatch(
         fsp_policy_id=FSP_POLICY, validity_token_name=VALIDITY_TOKEN
     )
     logger.info("policy: %s", fs_policy_id)
-    intervals = create_interval_dict(feeds)
+    intervals = create_interval_dict(feeds=feeds, hour_boundary=hour_boundary)
     on_chain_feed_data = await get_latest_feed_data(fs_policy_id=fs_policy_id)
     logger.info("unspent datum: %s", len(on_chain_feed_data))
-    pairs_to_request = await compare_intervals(intervals, on_chain_feed_data)
+    pairs_to_request = await compare_intervals(
+        intervals, on_chain_feed_data, hour_boundary
+    )
     if not pairs_to_request:
         logger.info("no new pairs needed on-chain...")
         return
@@ -360,9 +428,20 @@ def main():
         required=False,
         action="store_true",
     )
+    parser.add_argument(
+        "--hour-boundary",
+        help="use an hourly boundary for publication",
+        required=False,
+        action="store_true",
+    )
     args = parser.parse_args()
     asyncio.run(
-        pubwatch(feeds_file=args.feeds, local=args.local, nopublish=args.nopublish)
+        pubwatch(
+            feeds_file=args.feeds,
+            local=args.local,
+            nopublish=args.nopublish,
+            hour_boundary=args.hour_boundary,
+        )
     )
 
 

@@ -5,7 +5,11 @@ from typing import Final
 import freezegun
 import pytest
 
-from src.pubwatch.pubwatch import collate_latest_timestamps, compare_intervals
+from src.pubwatch.pubwatch import (
+    collate_latest_timestamps,
+    compare_intervals,
+    hour_baseline_delta,
+)
 
 ON_CHAIN_EX: Final[list] = [
     ["CER/iBTC-ADA/3", 1723186803981, [79234635919, 500000]],
@@ -258,3 +262,36 @@ async def test_compare_and_return_all():
         "HUNT-ADA",
         "ADA-USD",
     ]
+
+
+HOURLY_EXAMPLES: Final[str] = [
+    # 0401, 0400, publish (1 hour interval + 120s threshold)
+    (1723608060, 1723608000, 3600, 120, False),
+    # 0402, 0401, publish (1 hour interval + 120s threshold)
+    (1723608120, 1723608060, 3600, 120, False),
+    # 0401, 0345, publish (1 hour interval + 120s threshold)
+    (1723608060, 1723607100, 3600, 120, True),
+    # 0801, 0701, publish (1 hour interval + 120s threshold)
+    (1723622460, 1723618860, 3600, 120, True),
+    # 0801, 0701, no publish (2 hour interval + 120s threshold)
+    (1723622460, 1723618860, 7200, 120, False),
+    # 0801, 0701, no publish (2 hour interval + 120s threshold)
+    (1723622460, 1723615260, 7200, 120, True),
+    # 1044, 0958, no publish (1 hour interval + 120s threshold)
+    (1723632286, 1723629480, 3600, 120, False),
+    # 1044, 09:57, no publish (1 hour interval + 120s threshold)
+    (1723632286, 1723629420, 3600, 120, True),
+    # 1044, 09:57, no publish (1 hour interval + 320s threshold)
+    (1723632286, 1723629420, 3600, 320, False),
+]
+
+
+@pytest.mark.parametrize("now, latest, interval, threshold, publish", HOURLY_EXAMPLES)
+def test_hour_baseline_interval(now, latest, interval, threshold, publish):
+    """Test that our code works when using an hourly baseline for
+    publication.
+    """
+    hour_delta = hour_baseline_delta(
+        now=now, latest=latest, window=interval, threshold=threshold
+    )
+    assert hour_delta == publish
