@@ -41,6 +41,17 @@ pubwatch --help
 Pubwatch should be run via cron at reasonable interviews from within the Orcfax
 network.
 
+E.g.
+
+<!-- markdownlint-disable -->
+
+```cron
+# Run on the second minute of every hour.
+3 */1 * * * cd /home/orcfax/pubwatch && /home/orcfax/pubwatch/pubwatch.sh 2>&1 | logger -t orcfax_pubwatch
+```
+
+<!-- markdownlint-enable -->
+
 ## Output
 
 Logging will be visible to the user as follows:
@@ -48,97 +59,15 @@ Logging will be visible to the user as follows:
 <!-- markdownlint-disable -->
 
 ```log
-2024-08-08 14:47:55 INFO :: feed_helper.py:29:read_feed_data() :: cer-feeds version: 2024.08.06.0002
-2024-08-08 14:47:55 INFO :: feed_helper.py:30:read_feed_data() :: number of feeds: 13
-2024-08-08 14:47:55 INFO :: pubwatch.py:286:pubwatch() :: policy: 900d528f3c1864a1376db1afc065c9b293a2235f39b00a67455a6724
-2024-08-08 14:47:59 INFO :: pubwatch.py:289:pubwatch() :: unspent datum: 75
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '923'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/IBTC-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/IETH-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/MIN-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/SNEK-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/SHEN-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-EUR' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/ADA-EUR' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/FACT-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LQ-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/WMT-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/WMT-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/NEWM-ADA' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/NEWM-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-DJED' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-IUSD' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USDM' delta: '2876'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/HUNT-ADA' delta: '2877'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '2877'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '4708'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/IBTC-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/IETH-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/MIN-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/SNEK-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/SHEN-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-EUR' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/ADA-EUR' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/FACT-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LQ-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/WMT-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/WMT-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/NEWM-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/NEWM-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-DJED' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-IUSD' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USDM' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/HUNT-ADA' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '6476'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/IBTC-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/IETH-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/SNEK-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/SHEN-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-EUR' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/ADA-EUR' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/FACT-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LQ-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/WMT-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/WMT-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/NEWM-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/NEWM-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-DJED' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-IUSD' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USDM' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/HUNT-ADA' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '10077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '55238'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '64077'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '65716'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '66618'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-DJED' delta: '85676'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-IUSD' delta: '85676'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USDM' delta: '85676'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/HUNT-ADA' delta: '85676'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '85676'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '85802'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/MIN-ADA' delta: '87484'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '88266'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-IUSD' delta: '88266'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/HUNT-ADA' delta: '161276'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '162298'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USD' delta: '163020'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '163812'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '163932'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '164053'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/WMT-ADA' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/WMT-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/LENFI-ADA' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/NEWM-ADA' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:269:compare_intervals() :: feed: 'CER/NEWM-ADA' not being monitored
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-DJED' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-IUSD' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/ADA-USDM' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:264:compare_intervals() :: feed 'CER/HUNT-ADA' delta: '172076'
-2024-08-08 14:47:59 INFO :: pubwatch.py:292:pubwatch() :: no new pairs needed on-chain...
+2024-08-28 09:03:01 INFO :: feed_helper.py:31:read_feeds_file() :: cer-feeds version: 2024.08.12.0001
+2024-08-28 09:03:01 INFO :: feed_helper.py:32:read_feeds_file() :: number of feeds: 21
+2024-08-28 09:03:01 INFO :: pubwatch.py:389:pubwatch() :: policy: 900d528f3c1864a1376db1afc065c9b293a2235f39b00a67455a6724
+2024-08-28 09:03:03 INFO :: pubwatch.py:392:pubwatch() :: unspent datum: 194
+2024-08-28 09:03:03 INFO :: pubwatch.py:362:compare_intervals() :: using the hour as a boundary
+2024-08-28 09:03:03 INFO :: pubwatch.py:399:pubwatch() :: we need to request the following feeds: ['BTC-USD']
+2024-08-28T09:03:03 INFO :: connection_managers.py:95:connect() :: validation connection manager: new 'ack' connection from 'ac796b0a-f06a-4c5a-80df-12779c64aacd' 127.0.0.1 (orcfax-pubwatch/0.0.0) {}
+2024-08-28 09:03:03 INFO :: pubwatch.py:92:connect_to_websocket() :: connected to websocket
+2024-08-28 09:03:03 INFO :: pubwatch.py:94:connect_to_websocket() :: {"feeds": ["BTC-USD"]}
 ```
 
 <!-- markdownlint-enable -->
