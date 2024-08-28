@@ -46,7 +46,7 @@ E.g.
 <!-- markdownlint-disable -->
 
 ```cron
-# Run on the second minute of every hour.
+# Run on the third minute of every hour.
 3 */1 * * * cd /home/orcfax/pubwatch && /home/orcfax/pubwatch/pubwatch.sh 2>&1 | logger -t orcfax_pubwatch
 ```
 
