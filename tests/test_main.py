@@ -7,8 +7,10 @@ import pytest
 
 from src.pubwatch.pubwatch import (
     collate_latest_timestamps,
+    compare_gaps,
     compare_intervals,
     hour_baseline_delta,
+    remove_gaps,
 )
 
 ON_CHAIN_EX: Final[list] = [
@@ -295,3 +297,125 @@ def test_hour_baseline_interval(now, latest, interval, threshold, publish):
         now=now, latest=latest, window=interval, threshold=threshold
     )
     assert hour_delta == publish
+
+
+INTERVALS_NONE: Final[dict] = {
+    "CER/ADA-IUSD": 1,
+    "CER/ADA-USDM": 1,
+    "CER/ADA-DJED": 1,
+    "CER/SHEN-ADA": 1,
+}
+
+ON_CHAIN_DATA_NONE: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194003299, [157397269397, 1000000]],
+    ["CER/SHEN-ADA/3", 1723194003307, [3526254483, 500000]],
+    ["CER/ADA-DJED/3", 1723194003307, [3526254483, 500000]],
+]
+
+INTERVALS_ONE: Final[dict] = {
+    "CER/ADA-IUSD": 1,
+    "CER/ADA-USDM": 1,
+    "CER/ADA-DJED": 1,
+    "CER/BTN-ADA": 1,
+}
+
+ON_CHAIN_DATA_ONE: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194003299, [157397269397, 1000000]],
+    ["CER/ADA-DJED/3", 1723194003307, [3526254483, 500000]],
+]
+
+INTERVALS_TWO: Final[dict] = {
+    "CER/ADA-IUSD": 1,
+    "CER/ADA-USDM": 1,
+    "CER/FACT-ADA": 1,
+    "CER/BTN-ADA": 1,
+}
+
+ON_CHAIN_DATA_TWO: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194003299, [157397269397, 1000000]],
+]
+
+INTERVALS_NONE_MORE_ONCHAIN: Final[dict] = {
+    "CER/ADA-IUSD": 1,
+}
+
+ON_CHAIN_DATA_NONE_MORE_ONCHAIN: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194003299, [157397269397, 1000000]],
+    ["CER/SHEN-ADA/3", 1723194003307, [3526254483, 500000]],
+    ["CER/ADA-DJED/3", 1723194003307, [3526254483, 500000]],
+]
+
+GAPS_TESTS = [
+    (INTERVALS_NONE, ON_CHAIN_DATA_NONE, []),
+    (INTERVALS_ONE, ON_CHAIN_DATA_ONE, ["BTN-ADA"]),
+    (INTERVALS_TWO, ON_CHAIN_DATA_TWO, ["BTN-ADA", "FACT-ADA"]),
+    (INTERVALS_NONE_MORE_ONCHAIN, ON_CHAIN_DATA_NONE_MORE_ONCHAIN, []),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("feeds, on_chain, expected", GAPS_TESTS)
+async def test_compare_gaps(feeds, on_chain, expected):
+    """Ensure that the compare gaps function works as expected and
+    only returns gaps based on what is requested versus what is
+    on-chain.
+    """
+    res = await compare_gaps(feeds=feeds, on_chain_data=on_chain)
+    assert res == expected
+
+
+ON_CHAIN_DATA_NONE_REMOVED: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
+    ["CER/SHEN-ADA/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
+]
+
+ON_CHAIN_DATA_ONE_REMOVED: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
+]
+
+RES_ON_CHAIN_DATA_ONE_REMOVED: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
+]
+
+ON_CHAIN_DATA_TWO_REMOVED: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
+]
+
+RES_ON_CHAIN_DATA_TWO_REMOVED: Final[list] = [
+    ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
+    ["CER/ADA-USD/3", 1723194014750, [345233, 1000000]],
+]
+
+REMOVE_GAPS_TESTS = [
+    ([], ON_CHAIN_DATA_NONE_REMOVED, ON_CHAIN_DATA_NONE_REMOVED),
+    (["ADA-USD"], ON_CHAIN_DATA_ONE_REMOVED, RES_ON_CHAIN_DATA_ONE_REMOVED),
+    (
+        ["ADA-USDM", "ADA-DJED"],
+        ON_CHAIN_DATA_TWO_REMOVED,
+        RES_ON_CHAIN_DATA_TWO_REMOVED,
+    ),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("gaps, on_chain, expected", REMOVE_GAPS_TESTS)
+async def test_remove_gaps(gaps, on_chain, expected):
+    """Ensure that we can remove values from the on-chain results as
+    needed.
+    """
+    res = await remove_gaps(gaps=gaps, on_chain=on_chain)
+    assert res == expected

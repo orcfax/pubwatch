@@ -372,6 +372,40 @@ async def compare_intervals(
     return to_request
 
 
+async def compare_gaps(feeds: dict, on_chain_data: list[list]) -> list:
+    """Compare publication gaps based on label and not interval. These
+    feeds need to be requested in any case.
+
+    NB. currently assumes ALL feeds in cer-feeds.json are required and
+    will need to be modified to ignore inactive feeds at some point if
+    the nomenclature is added.
+    """
+    requested = []
+    on_chain = []
+    for feed in feeds.keys():
+        requested.append(feed)
+    for feed in on_chain_data:
+        on_chain.append(get_feed_id(feed[0]).upper())
+    feeds_missing = set(requested).difference(set(on_chain))
+    required = []
+    for item in feeds_missing:
+        required.append(item.split("/")[1])
+    return required
+
+
+async def remove_gaps(gaps: list, on_chain: list[list]) -> list[dict]:
+    """Remove anything we absolutely need to publish from mainnet.
+    The on-chain list is returned for interval comparison.
+    """
+    for item in on_chain:
+        feed = item[0]
+        feed = get_feed_id(feed).upper().split("/")[1]
+        if feed not in gaps:
+            continue
+        on_chain.remove(item)
+    return on_chain
+
+
 async def pubwatch(
     feeds_file: str,
     local: bool = False,
@@ -390,12 +424,18 @@ async def pubwatch(
     intervals = create_interval_dict(feeds=feeds, hour_boundary=hour_boundary)
     on_chain_feed_data = await get_latest_feed_data(fs_policy_id=fs_policy_id)
     logger.info("unspent datum: %s", len(on_chain_feed_data))
+    gaps = await compare_gaps(
+        intervals,
+        on_chain_feed_data,
+    )
+    on_chain_feed_data = await remove_gaps(gaps, on_chain_feed_data)
     pairs_to_request = await compare_intervals(
         intervals, on_chain_feed_data, hour_boundary
     )
-    if not pairs_to_request:
+    if not gaps and not pairs_to_request:
         logger.info("no new pairs needed on-chain...")
         return
+    pairs_to_request = pairs_to_request + gaps
     logger.info("we need to request the following feeds: %s", pairs_to_request)
     req = json.dumps({"feeds": pairs_to_request})
     if nopublish:
