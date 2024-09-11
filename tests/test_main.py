@@ -299,6 +299,11 @@ def test_hour_baseline_interval(now, latest, interval, threshold, publish):
     assert hour_delta == publish
 
 
+# Test data for anything that isn't on-chain but should be there and
+# would otherwise not appear during interval comparison.
+
+# All four cer-feeds appear in the on-chain data and so are not gaps
+# on-chain.
 INTERVALS_NONE: Final[dict] = {
     "CER/ADA-IUSD": 1,
     "CER/ADA-USDM": 1,
@@ -313,6 +318,8 @@ ON_CHAIN_DATA_NONE: Final[list] = [
     ["CER/ADA-DJED/3", 1723194003307, [3526254483, 500000]],
 ]
 
+# BTN-ADA does not appear in the on-chain data and so this is a
+# legitimate gap that needs to be plugged.
 INTERVALS_ONE: Final[dict] = {
     "CER/ADA-IUSD": 1,
     "CER/ADA-USDM": 1,
@@ -326,6 +333,8 @@ ON_CHAIN_DATA_ONE: Final[list] = [
     ["CER/ADA-DJED/3", 1723194003307, [3526254483, 500000]],
 ]
 
+# FACT-ADA and BTN-ADA doe not appear in the on-chain data and so
+# their intervals cannot be compared and so need to be published.
 INTERVALS_TWO: Final[dict] = {
     "CER/ADA-IUSD": 1,
     "CER/ADA-USDM": 1,
@@ -368,6 +377,7 @@ async def test_compare_gaps(feeds, on_chain, expected):
     assert res == expected
 
 
+# On-chain data we anticipate removing zero values from.
 ON_CHAIN_DATA_NONE_REMOVED: Final[list] = [
     ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
     ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
@@ -375,6 +385,7 @@ ON_CHAIN_DATA_NONE_REMOVED: Final[list] = [
     ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
 ]
 
+# On-chain data we anticipate removing one value from.
 ON_CHAIN_DATA_ONE_REMOVED: Final[list] = [
     ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
     ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
@@ -382,12 +393,14 @@ ON_CHAIN_DATA_ONE_REMOVED: Final[list] = [
     ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
 ]
 
+# One value remove because it doesn't need comparison.
 RES_ON_CHAIN_DATA_ONE_REMOVED: Final[list] = [
     ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
     ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
     ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
 ]
 
+# On-chain data we anticipate removing two values from.
 ON_CHAIN_DATA_TWO_REMOVED: Final[list] = [
     ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
     ["CER/ADA-USDM/3", 1723194014750, [345233, 1000000]],
@@ -395,6 +408,7 @@ ON_CHAIN_DATA_TWO_REMOVED: Final[list] = [
     ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
 ]
 
+# Two values remove because it doesn't need comparison.
 RES_ON_CHAIN_DATA_TWO_REMOVED: Final[list] = [
     ["CER/ADA-IUSD/3", 1723194014750, [345233, 1000000]],
     ["CER/ADA-USD/3", 1723194014750, [345233, 1000000]],
