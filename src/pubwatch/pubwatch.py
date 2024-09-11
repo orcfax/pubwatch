@@ -291,6 +291,7 @@ def collate_latest_timestamps(on_chain_feed_data: list) -> dict:
             res[feed] = on_chain_time if res[feed] < on_chain_time else res[feed]
         except KeyError:
             res[feed] = on_chain_time
+    logger.info("existing on-chain feeds to compare: %s", len(set(res)))
     return res
 
 

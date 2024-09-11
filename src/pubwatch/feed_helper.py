@@ -29,7 +29,7 @@ async def read_feeds_file(feeds_file: str) -> list[FeedSpec]:
     with open(feeds_file, "r", encoding="utf-8") as json_feeds:
         feed_dict = json.loads(json_feeds.read())
     logger.info("cer-feeds version: %s", feed_dict["meta"]["version"])
-    logger.info("number of feeds: %s", len(feed_dict["feeds"]))
+    logger.info("number of feeds in feeds file: %s", len(feed_dict["feeds"]))
     feeds = []
     for item in feed_dict["feeds"]:
         feed = parse_obj_as(FeedSpec, item)
