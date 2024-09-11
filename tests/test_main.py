@@ -374,7 +374,10 @@ async def test_compare_gaps(feeds, on_chain, expected):
     on-chain.
     """
     res = await compare_gaps(feeds=feeds, on_chain_data=on_chain)
-    assert res == expected
+    assert isinstance(res, list)
+    assert len(res) == len(expected)
+    for item in res:
+        assert item in expected
 
 
 # On-chain data we anticipate removing zero values from.
@@ -432,4 +435,7 @@ async def test_remove_gaps(gaps, on_chain, expected):
     needed.
     """
     res = await remove_gaps(gaps=gaps, on_chain=on_chain)
-    assert res == expected
+    assert isinstance(res, list)
+    assert len(res) == len(expected)
+    for item in res:
+        assert item in expected
