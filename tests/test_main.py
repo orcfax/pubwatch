@@ -1,5 +1,7 @@
 """Pubwatch tests."""
 
+# pylint: disable=R0913
+
 from typing import Final
 
 import freezegun
@@ -7,10 +9,10 @@ import pytest
 
 from src.pubwatch.pubwatch import (
     collate_latest_timestamps,
-    compare_gaps,
-    compare_intervals,
-    hour_baseline_delta,
-    remove_gaps,
+    compare_direct_intervals,
+    compare_gaps_by_label,
+    hour_delta_threshold,
+    remove_known_from_feed_list,
 )
 
 ON_CHAIN_EX: Final[list] = [
@@ -124,6 +126,7 @@ INTERVALS: Final[dict] = {
     "CER/IBTC-ADA": 657,
     "CER/IETH-ADA": 3480,
 }
+
 ON_CHAIN_DATA: Final[list] = [
     ["CER/ADA-DJED/3", 1723194014750, [345233, 1000000]],
     ["CER/iBTC-ADA/3", 1723194003299, [157397269397, 1000000]],
@@ -234,8 +237,31 @@ async def test_compare_and_return():
     Values in INTERVALS are set to 1 so that we guarantee a delta which
     requires a value to be returned.
     """
-    res = await compare_intervals(INTERVALS, ON_CHAIN_DATA)
-    for item in ["ADA-IUSD", "SHEN-ADA", "IBTC-ADA"]:
+    collated_timestamps = collate_latest_timestamps(ON_CHAIN_DATA)
+    assert collated_timestamps == {
+        "CER/ADA-DJED": 1723194014,
+        "CER/IBTC-ADA": 1723194003,
+        "CER/IETH-ADA": 1723194003,
+        "CER/MIN-ADA": 1723194003,
+        "CER/SNEK-ADA": 1723194003,
+        "CER/SHEN-ADA": 1723194003,
+        "CER/ADA-EUR": 1723194003,
+        "CER/FACT-ADA": 1723194003,
+        "CER/LQ-ADA": 1723194003,
+        "CER/WMT-ADA": 1723194003,
+        "CER/LENFI-ADA": 1723194003,
+        "CER/NEWM-ADA": 1723194003,
+        "CER/ADA-IUSD": 1723194003,
+        "CER/ADA-USDM": 1723194003,
+        "CER/HUNT-ADA": 1723194003,
+        "CER/ADA-USD": 1723194002,
+    }, "dict should contain latest timestamps from on-chain only"
+    res = await compare_direct_intervals(
+        latest_feed_timestamps=collated_timestamps,
+        intervals=INTERVALS,
+        threshold=0,
+    )
+    for item in ["CER/ADA-IUSD", "CER/SHEN-ADA", "CER/IBTC-ADA"]:
         assert item in res
 
 
@@ -247,54 +273,77 @@ async def test_compare_and_return_all():
     Freezetime is set further in the past and so all feeds should be
     required.
     """
-    res = await compare_intervals(INTERVALS, ON_CHAIN_DATA)
+    collated_timestamps = collate_latest_timestamps(ON_CHAIN_DATA)
+    res = await compare_direct_intervals(
+        latest_feed_timestamps=collated_timestamps,
+        intervals=INTERVALS,
+        threshold=0,
+    )
     assert len(set(res)) == len(INTERVALS.values())
     assert res == [
-        "ADA-DJED",
-        "IBTC-ADA",
-        "IETH-ADA",
-        "MIN-ADA",
-        "SNEK-ADA",
-        "SHEN-ADA",
-        "FACT-ADA",
-        "LQ-ADA",
-        "LENFI-ADA",
-        "ADA-IUSD",
-        "ADA-USDM",
-        "HUNT-ADA",
-        "ADA-USD",
+        "CER/ADA-DJED",
+        "CER/IBTC-ADA",
+        "CER/IETH-ADA",
+        "CER/MIN-ADA",
+        "CER/SNEK-ADA",
+        "CER/SHEN-ADA",
+        "CER/FACT-ADA",
+        "CER/LQ-ADA",
+        "CER/LENFI-ADA",
+        "CER/ADA-IUSD",
+        "CER/ADA-USDM",
+        "CER/HUNT-ADA",
+        "CER/ADA-USD",
     ]
 
 
 HOURLY_EXAMPLES: Final[str] = [
-    # 0401, 0400, publish (1 hour interval + 120s threshold)
+    # 04:01, 04:00, publish (1 hour interval + 120s threshold)
     (1723608060, 1723608000, 3600, 120, False),
-    # 0402, 0401, publish (1 hour interval + 120s threshold)
+    # 04:02, 04:01, publish (1 hour interval + 120s threshold)
     (1723608120, 1723608060, 3600, 120, False),
-    # 0401, 0345, publish (1 hour interval + 120s threshold)
-    (1723608060, 1723607100, 3600, 120, True),
-    # 0801, 0701, publish (1 hour interval + 120s threshold)
+    # 04:10, 03:45, publish (1 hour interval + 120s threshold)
+    (1723608652, 1723607100, 3600, 120, True),
+    # 08:01, 07:01, publish (1 hour interval + 120s threshold)
     (1723622460, 1723618860, 3600, 120, True),
-    # 0801, 0701, no publish (2 hour interval + 120s threshold)
+    # 08:01, 07:01, no publish (2 hour interval + 120s threshold)
     (1723622460, 1723618860, 7200, 120, False),
-    # 0801, 0701, no publish (2 hour interval + 120s threshold)
+    # 08:01, 06:10, publish (2 hour interval + 120s threshold)
+    (1723622460, 1723615852, 7200, 120, True),
+    # 08v01, 07:01, no publish (2 hour interval + 120s threshold)
+    (1723622460, 1723618860, 7200, 120, False),
+    # 08:01, 06:01, publish (2 hour interval + 120s threshold)
     (1723622460, 1723615260, 7200, 120, True),
-    # 1044, 0958, no publish (1 hour interval + 120s threshold)
-    (1723632286, 1723629480, 3600, 120, False),
-    # 1044, 09:57, no publish (1 hour interval + 120s threshold)
+    # 10:44, 09:58, no publish (63 minute interval (3800s) + 120s threshold)
+    (1723632286, 1723629480, 3800, 120, False),
+    # 10:44, 09:57, publish (1 hour interval + 120s threshold)
     (1723632286, 1723629420, 3600, 120, True),
-    # 1044, 09:57, no publish (1 hour interval + 320s threshold)
-    (1723632286, 1723629420, 3600, 320, False),
+    # 10:44, 09:57, publish (1 hour interval + 320s threshold)
+    (1723632286, 1723629420, 3600, 320, True),
+    # 10:44, 10:04, no publish (1 hour interval + 320s threshold)
+    (1723632286, 1723629851, 3600, 0, False),
+    # 10:44, 07:17, no publish (1 hour interval + 0s threshold)
+    (1723632286, 1723619851, 3600, 0, True),
+    # 10:44, 07:17, no publish (4 hour interval + 0s threshold)
+    (1723632286, 1723619851, 14400, 0, False),
 ]
 
 
-@pytest.mark.parametrize("now, latest, interval, threshold, publish", HOURLY_EXAMPLES)
-def test_hour_baseline_interval(now, latest, interval, threshold, publish):
+@pytest.mark.parametrize(
+    "now, latest_timestamp, interval, threshold, publish", HOURLY_EXAMPLES
+)
+def test_hour_delta_threshold(
+    mocker, now, latest_timestamp, interval, threshold, publish
+):
     """Test that our code works when using an hourly baseline for
-    publication.
+    publication. An hourly baseline means that we try to publish on the
+    hour, and so will publish even if the interval is slightly higher
+    than the current time.
     """
-    hour_delta = hour_baseline_delta(
-        now=now, latest=latest, window=interval, threshold=threshold
+    print(now)
+    mocker.patch("time.time", return_value=now)
+    hour_delta = hour_delta_threshold(
+        latest_timestamp=latest_timestamp, interval=interval, threshold=threshold
     )
     assert hour_delta == publish
 
@@ -368,12 +417,12 @@ GAPS_TESTS = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("feeds, on_chain, expected", GAPS_TESTS)
-async def test_compare_gaps(feeds, on_chain, expected):
+async def test_compare_gaps_by_label(feeds, on_chain, expected):
     """Ensure that the compare gaps function works as expected and
     only returns gaps based on what is requested versus what is
     on-chain.
     """
-    res = await compare_gaps(feeds=feeds, on_chain_data=on_chain)
+    res = await compare_gaps_by_label(feeds=feeds, on_chain_data=on_chain)
     assert isinstance(res, list)
     assert len(res) == len(expected)
     for item in res:
@@ -434,7 +483,7 @@ async def test_remove_gaps(gaps, on_chain, expected):
     """Ensure that we can remove values from the on-chain results as
     needed.
     """
-    res = await remove_gaps(gaps=gaps, on_chain=on_chain)
+    res = await remove_known_from_feed_list(label_based_gaps=gaps, on_chain=on_chain)
     assert isinstance(res, list)
     assert len(res) == len(expected)
     for item in res:
