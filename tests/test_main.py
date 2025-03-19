@@ -7,13 +7,16 @@ from typing import Final
 import freezegun
 import pytest
 
-from src.pubwatch.pubwatch import (
+from src.pubwatch.compare import (
     collate_latest_timestamps,
     compare_direct_intervals,
-    compare_gaps_by_label,
+    compare_intervals,
+    get_delta,
     hour_delta_threshold,
-    remove_known_from_feed_list,
+    make_feed_interval_obj,
 )
+from src.pubwatch.objects import FeedInterval, feed_list, feed_list_expiring
+from src.pubwatch.pubwatch import compare_gaps_by_label, remove_known_from_feed_list
 
 ON_CHAIN_EX: Final[list] = [
     ["CER/iBTC-ADA/3", 1723186803981, [79234635919, 500000]],
@@ -261,7 +264,9 @@ async def test_compare_and_return():
         intervals=INTERVALS,
         threshold=0,
     )
-    for item in ["CER/ADA-IUSD", "CER/SHEN-ADA", "CER/IBTC-ADA"]:
+    assert len(res) == len(INTERVALS)
+    res = feed_list(res)
+    for item in ["ADA-IUSD", "SHEN-ADA", "IBTC-ADA"]:
         assert item in res
 
 
@@ -279,22 +284,89 @@ async def test_compare_and_return_all():
         intervals=INTERVALS,
         threshold=0,
     )
+    assert len(res) == len(INTERVALS)
+    res = feed_list(res)
     assert len(set(res)) == len(INTERVALS.values())
     assert res == [
-        "CER/ADA-DJED",
-        "CER/IBTC-ADA",
-        "CER/IETH-ADA",
-        "CER/MIN-ADA",
-        "CER/SNEK-ADA",
-        "CER/SHEN-ADA",
-        "CER/FACT-ADA",
-        "CER/LQ-ADA",
-        "CER/LENFI-ADA",
-        "CER/ADA-IUSD",
-        "CER/ADA-USDM",
-        "CER/HUNT-ADA",
-        "CER/ADA-USD",
+        "ADA-DJED",
+        "IBTC-ADA",
+        "IETH-ADA",
+        "MIN-ADA",
+        "SNEK-ADA",
+        "SHEN-ADA",
+        "FACT-ADA",
+        "LQ-ADA",
+        "LENFI-ADA",
+        "ADA-IUSD",
+        "ADA-USDM",
+        "HUNT-ADA",
+        "ADA-USD",
     ]
+
+
+ON_CHAIN_DATA_FOR_BATCHING: Final[list] = [
+    ["CER/ADA-DJED/5", 1734171010000, [5183, 200000]],
+    ["CER/MIN-ADA/5", 1734171010000, [108147, 50000]],
+    ["CER/FACT-ADA/5", 1734171010000, [294703, 500000]],
+    ["CER/LQ-ADA/5", 1734171010000, [1702987, 1000000]],
+    ["CER/SNEK-ADA/5", 1734171010000, [1313, 200000]],
+    ["CER/LENFI-ADA/5", 1734171010000, [346269, 1000000]],
+    # 09:25.
+    ["CER/HUNT-ADA/5", 1734168300000, [305979, 1000000]],
+    # 09:20.
+    ["CER/ADA-USD/5", 1734168010000, [70427, 200000]],
+    # 09:10.
+    ["CER/ADA-USDM/5", 1734167410000, [102779, 250000]],
+]
+
+
+@pytest.mark.asyncio
+@freezegun.freeze_time("2024-12-14 10:10:10")
+async def test_compare_intervals_with_batching():
+    """Provide some integration testing for when batching is enabled.
+    Batching should increase the number of feeds we're requesting by
+    finding a bigger threshold of those about to go stale.
+    """
+    collated_timestamps = collate_latest_timestamps(ON_CHAIN_DATA_FOR_BATCHING)
+    assert collated_timestamps == {
+        "CER/ADA-DJED": 1734171010,
+        "CER/MIN-ADA": 1734171010,
+        "CER/SNEK-ADA": 1734171010,
+        "CER/FACT-ADA": 1734171010,
+        "CER/LQ-ADA": 1734171010,
+        "CER/LENFI-ADA": 1734171010,
+        # 09:25
+        "CER/HUNT-ADA": 1734168300,
+        # 09:20.
+        "CER/ADA-USD": 1734168010,
+        # 09;10.
+        "CER/ADA-USDM": 1734167410,
+    }, "dict should contain latest timestamps from on-chain only"
+
+    # Test 1: Using the feed list with no batching, return a single
+    # result that has expired by one hour.
+    res = await compare_intervals(
+        intervals=INTERVALS,
+        comparison_data=ON_CHAIN_DATA_FOR_BATCHING,
+        threshold=0,
+        hour_boundary=False,
+        batching=False,
+        batch_time=0,
+    )
+    assert res == ["ADA-USDM"]
+    # Test 2: extend the range of batching to fifteen minutes, i.e. the
+    # feed will expire within 15 mins, so we need to post.
+    res = await compare_intervals(
+        intervals=INTERVALS,
+        comparison_data=ON_CHAIN_DATA_FOR_BATCHING,
+        threshold=0,
+        hour_boundary=False,
+        batching=True,
+        batch_time=900,
+    )
+    assert len(res) == 3
+    for item in ["ADA-USDM", "ADA-USD", "HUNT-ADA"]:
+        assert item in res
 
 
 HOURLY_EXAMPLES: Final[str] = [
@@ -340,7 +412,6 @@ def test_hour_delta_threshold(
     hour, and so will publish even if the interval is slightly higher
     than the current time.
     """
-    print(now)
     mocker.patch("time.time", return_value=now)
     hour_delta = hour_delta_threshold(
         latest_timestamp=latest_timestamp, interval=interval, threshold=threshold
@@ -488,3 +559,63 @@ async def test_remove_gaps(gaps, on_chain, expected):
     assert len(res) == len(expected)
     for item in res:
         assert item in expected
+
+
+def test_objects_expiry():
+    """Perform some basic tests around objects."""
+    fi1 = FeedInterval(
+        feed_name="ada-usd",
+        time_left=100,
+        interval=100,
+        required=False,
+    )
+    assert fi1.feed_name == "ada-usd"
+    assert feed_list_expiring([fi1], 0) == []
+    assert feed_list_expiring([fi1], 101) == ["ada-usd"]
+    fi1.time_left = 1
+    fi1.interval = 100
+    assert feed_list_expiring([fi1], 0) == []
+    assert feed_list_expiring([fi1], 1) == ["ada-usd"]
+    fi1.time_left = 5000
+    fi1.interval = 3600
+    assert feed_list_expiring([fi1], 0) == []
+    assert feed_list_expiring([fi1], 600) == []
+    assert feed_list_expiring([fi1], 6001) == ["ada-usd"]
+
+
+def test_interval_obj():
+    """Provide some tests for the creation of our interval object."""
+    obj1 = make_feed_interval_obj(
+        curr_time=2600,
+        on_chain_timestamp=3000,
+        threshold=10,
+        interval=3600,
+    )
+    assert obj1.elapsed == 400
+    assert obj1.feed_name == "UNTITLED"
+    assert obj1.total_time_elapsed == 410
+    assert obj1.interval == 3600
+    assert obj1.time_left == 3190
+    assert obj1.required is False
+
+    obj2 = make_feed_interval_obj(
+        curr_time=10000,
+        on_chain_timestamp=13600,
+        threshold=0,
+        interval=3600,
+    )
+    assert obj2.elapsed == 3600
+    assert obj2.feed_name == "UNTITLED"
+    assert obj2.total_time_elapsed == 3600
+    assert obj2.interval == 3600
+    assert obj2.time_left == 0
+    assert obj2.required is False
+
+
+def test_get_delta():
+    """Ensure get_delta is returning sensible information."""
+    current = 2600
+    on_chain = 1000
+    res = get_delta(current, on_chain)
+    # time elapsed is 1600 seconds.
+    assert res == 1600

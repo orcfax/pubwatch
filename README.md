@@ -102,6 +102,13 @@ latest timestamp (`l1`) - interval (`i1`) e.g.
 sensitivity of the comparison, and might be useful when limited by other
 factors, e.g. cron can only be run once a minute.
 
+#### Batching
+
+Batching logic can be used to determine if more than one feed is expiring soon,
+E.g. if a parameter of 15 minutes is set, all feeds expiring within the next
+fifteen minutes will also be requested. This allows the Orcfax publication
+mechanism to be used as efficiently as possible.
+
 ## Output
 
 Logging will be visible to the user as follows:
