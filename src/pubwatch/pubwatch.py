@@ -496,6 +496,10 @@ async def pubwatch(
     )
     logger.info("no. unspent datum: '%s'", len(on_chain_feed_data))
     label_based_gaps = await compare_gaps_by_label(intervals, on_chain_feed_data)
+
+    print(label_based_gaps)
+    sys.exit()
+
     logger.info("missing feeds based on label: %s", label_based_gaps)
     comparison_data = await remove_known_from_feed_list(
         label_based_gaps, on_chain_feed_data
@@ -567,14 +571,23 @@ def handle_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def set_logging(args: argparse.Namespace):
+    """Set logging."""
+    logging.getLogger().setLevel(
+        logging.DEBUG if args.debug else logging.INFO,
+    )
+    # Make sure urlib3 is quiet.
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # Feedback for the user if debug is on.
+    logger.debug("debug logging: enabled")
+
+
 def main():
     """Primary entry point for this script."""
     hour_bound: Final[str] = "hour boundary"
     interval_bound: Final[str] = "interval boundary"
     args = handle_args()
-    logging.getLogger(__name__).setLevel(
-        logging.DEBUG if args.debug else logging.INFO,
-    )
+    set_logging(args)
     mode = hour_bound if args.hour_boundary is True else interval_bound
     logger.info("no publish: '%s'", args.nopublish)
     logger.info("mode: '%s' threshold; '%s'", mode, args.threshold)
