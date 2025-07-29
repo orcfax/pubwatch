@@ -32,11 +32,12 @@ import websockets
 try:
     import compare
     import feed_helper
+    import price_monitor
 except ModuleNotFoundError:
     try:
-        from src.pubwatch import compare, feed_helper
+        from src.pubwatch import compare, feed_helper, price_monitor
     except ModuleNotFoundError:
-        from pubwatch import compare, feed_helper
+        from pubwatch import compare, feed_helper, price_monitor
 
 
 logging.basicConfig(
@@ -403,6 +404,12 @@ def handle_args() -> argparse.Namespace:
         default=BATCH_DEFAULT,
     )
     parser.add_argument(
+        "--price-monitor",
+        help="monitor for price deviations and publish if necessary",
+        required=False,
+        action="store_true",
+    )
+    parser.add_argument(
         "--debug",
         help="set DEBUG log level (default: INFO)",
         required=False,
@@ -431,6 +438,15 @@ def main():
     mode = hour_bound if args.hour_boundary is True else interval_bound
     logger.info("no publish: '%s'", args.nopublish)
     logger.info("mode: '%s' threshold; '%s'", mode, args.threshold)
+    if args.price_monitor:
+        logger.debug("price monitor selected: returning")
+        asyncio.run(
+            price_monitor.price_monitor(
+                feed_data=args.feeds,
+                local=args.local,
+            )
+        )
+        sys.exit(0)
     asyncio.run(
         pubwatch(
             feeds_file=args.feeds,
