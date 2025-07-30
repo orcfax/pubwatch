@@ -1,12 +1,12 @@
 # requirements to run locally and for development.
 -r requirements.txt
 
-freezegun==1.5.1
+freezegun==1.5.4
 pip-upgrader==1.4.15
-pre-commit==3.8.0
-pylint==3.2.6
-pytest==8.3.2
-pytest-asyncio==0.23.8
-pytest-mock==3.14.0
-pytest-random-order==1.1.1
-tox==4.16.0
+pre_commit==4.2.0
+pylint==3.3.7
+pytest==8.4.1
+pytest-asyncio==1.1.0
+pytest-mock==3.14.1
+pytest-random-order==1.2.0
+tox==4.28.4

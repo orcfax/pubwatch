@@ -114,10 +114,7 @@ async def connect_to_websocket(ws_uri: str, msg_to_send: str, local: bool):
         sys.exit(1)
     except TypeError as err:
         logger.error("ensure data is sent as JSON: %s", err)
-    except (
-        websockets.exceptions.ConnectionClosedError,
-        websockets.exceptions.InvalidStatusCode,
-    ) as err:
+    except (websockets.exceptions.ConnectionClosedError,) as err:
         logger.warning(
             "closed connection error '%s', attempting exponential retry: %s",
             ws_uri,

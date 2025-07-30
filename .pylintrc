@@ -31,7 +31,9 @@ ignore-paths=
 [MESSAGES CONTROL]
 
 disable =
-    C0301, 	# line-length too long, see Black documented recommendations.
+    C0301, 	# Line-length too long, see Black documented recommendations.
     C0115,  # No docstring for Class.
+    R0917,  # Too many positional args.
+    R0801,  # Similar lines in two files.
     # Pylint incorrectly picking up the below.
     R0401,  # Cyclic import.
