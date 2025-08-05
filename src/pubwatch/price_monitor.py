@@ -30,9 +30,10 @@ except ModuleNotFoundError:
 
 logger = logging.getLogger(__name__)
 
-VALIDATOR_URI: Final[str] = os.environ.get("ORCFAX_VALIDATOR")
-MONITOR_URI: Final[str] = f"{VALIDATOR_URI}price_monitor/"
-VALIDATION_REQUEST_URI: Final[str] = f"{VALIDATOR_URI}validate_on_demand/"
+KUPO_URL: Final[str] = os.environ.get("KUPO_URL")
+VALIDATOR_URL: Final[str] = os.environ.get("ORCFAX_VALIDATOR")
+MONITOR_URL: Final[str] = f"{VALIDATOR_URL}price_monitor/"
+VALIDATION_REQUEST_URL: Final[str] = f"{VALIDATOR_URL}validate_on_demand/"
 
 # Seconds after which to request current price off-chain.
 POLLING_TIME: Final[int] = 60
@@ -50,15 +51,15 @@ def _retry_logging(retry_state):
     """Provide some logging about tenacity retry attempts."""
     logger.info(
         "attempting connection to validator websocket '%s' (tries: %s)",
-        f"{MONITOR_URI}",
+        f"{MONITOR_URL}",
         retry_state.attempt_number,
     )
 
 
 @retry(wait=wait_exponential(multiplier=1, min=4, max=30), after=_retry_logging)
-async def connect_to_websocket(ws_uri: str, msg_to_send: str, local: bool):
+async def connect_to_websocket(ws_url: str, msg_to_send: str, local: bool):
     """Connect to the websocket and parse the response."""
-    validator_connection = ws_uri
+    validator_connection = ws_url
     ssl_context = ssl.create_default_context(cafile=certifi.where())
     if local:
         ssl_context = None
@@ -88,17 +89,17 @@ async def connect_to_websocket(ws_uri: str, msg_to_send: str, local: bool):
     except (websockets.exceptions.ConnectionClosedError,) as err:
         logger.warning(
             "closed connection error '%s', attempting exponential retry: %s",
-            ws_uri,
+            ws_url,
             err,
         )
-        if ws_uri == MONITOR_URI:
+        if ws_url == MONITOR_URL:
             # Only raise an exception if the problem exists with the
             # monitor function.
             raise err
     except json.decoder.JSONDecodeError as err:
         logger.error("json error decoding server response '%s': %s", msg, err)
     except websockets.exceptions.ConnectionClosedOK as err:
-        logger.error("connection to: '%s' made: %s", ws_uri, err)
+        logger.error("connection to: '%s' made: %s", ws_url, err)
     return {}
 
 
@@ -172,39 +173,47 @@ async def request_new_prices(pairs_to_request: dict, local: bool):
     """Send a validation request to the server to ask for a new price
     to be placed on-chain.
     """
-    validate_uri = f"{VALIDATION_REQUEST_URI}"
-    await connect_to_websocket(validate_uri, json.dumps(pairs_to_request), local)
+    validate_url = f"{VALIDATION_REQUEST_URL}"
+    await connect_to_websocket(validate_url, json.dumps(pairs_to_request), local)
     return
 
 
-async def request_published_unpublished_prices(
-    monitor_uri: str, feeds: dict, local: bool
-):
+async def request_deviations_ws(monitor_url: str, feeds: dict, local: bool):
     """Request published_unpublished prices for the feeds in our
-    given feeds list.
+    given feeds list from the websocket. Work out deviation and
+    request the required values.
     """
     feeds_to_request = json.dumps({"feed_ids": [feed.pair for feed in feeds]})
-    data = await connect_to_websocket(monitor_uri, feeds_to_request, True)
+    data = await connect_to_websocket(monitor_url, feeds_to_request, True)
     if data.get("error"):
         logger.error("error in websocket response: %s", data.get("error"))
         return
     pairs_to_request = await compare_validator_data_websocket(feeds, data)
     if not pairs_to_request:
-        logger.info(
-            "not requesting any updated pairs... polling in '%s' seconds",
-            POLLING_TIME,
-        )
+        logger.info("not requesting any updated pairs...")
         return
     await request_new_prices(pairs_to_request=pairs_to_request, local=local)
 
 
-async def price_monitor(feed_data: str, local: bool = False):
+async def request_deviations_kupo(kupo_url: str, feeds: dict, local: bool):
+    """Request published_unpublished prices for the feeds in our
+    given feeds list from kupo. Work out deviation and request
+    the required values.
+    """
+    logging.info("using kupo for price-monitoring")
+
+
+async def price_monitor(feed_data: str, kupo: bool, local: bool = False):
     """Monitor prices on-chain and update based on `feed_data`."""
-    monitor_uri = MONITOR_URI
+    monitor_url = MONITOR_URL
     feeds = await feed_helper.read_feeds_file(feeds_file=feed_data)
     try:
         while True:
-            await request_published_unpublished_prices(monitor_uri, feeds, local)
+            if not kupo:
+                await request_deviations_ws(monitor_url, feeds, local)
+            else:
+                await request_deviations_kupo(monitor_url, feeds, local)
+            logging.info("going to sleep, polling in: '%s' seconds", POLLING_TIME)
             time.sleep(POLLING_TIME)
             continue
     except KeyboardInterrupt:

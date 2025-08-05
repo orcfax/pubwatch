@@ -407,6 +407,12 @@ def handle_args() -> argparse.Namespace:
         action="store_true",
     )
     parser.add_argument(
+        "--kupo",
+        help="use kupo to monitor price deviations",
+        required=False,
+        action="store_true",
+    )
+    parser.add_argument(
         "--debug",
         help="set DEBUG log level (default: INFO)",
         required=False,
@@ -440,6 +446,7 @@ def main():
         asyncio.run(
             price_monitor.price_monitor(
                 feed_data=args.feeds,
+                kupo=args.kupo,
                 local=args.local,
             )
         )
