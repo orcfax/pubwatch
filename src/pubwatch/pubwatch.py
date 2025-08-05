@@ -267,7 +267,7 @@ async def compare_gaps_by_label(feeds: dict, on_chain_data: list[list]) -> list:
     requested = []
     on_chain = []
     for feed in feeds.keys():
-        requested.append(feed)
+        requested.append(feed.upper())
     for feed in on_chain_data:
         on_chain.append(compare.get_feed_id(feed[0]).upper())
     feeds_missing = set(requested).difference(set(on_chain))
