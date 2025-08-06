@@ -194,8 +194,8 @@ async def pubwatch(
         feeds_file=feeds_file,
     )
     fs_policy_id = await kupo.get_policy_from_fsp(
-        fsp_policy_id=FSP_POLICY,
-        validity_token_name=VALIDITY_TOKEN,
+        fsp_policy_id=kupo.FSP_POLICY,
+        validity_token_name=kupo.VALIDITY_TOKEN,
     )
     logger.info("fs policy ID: '%s'", fs_policy_id)
     on_chain_feed_data = await kupo.get_latest_feed_data(
@@ -318,19 +318,19 @@ def main():
     interval_bound: Final[str] = "interval boundary"
     args = handle_args()
     set_logging(args)
-    mode = hour_bound if args.hour_boundary is True else interval_bound
-    logger.info("no publish: '%s'", args.nopublish)
-    logger.info("mode: '%s' threshold; '%s'", mode, args.threshold)
     if args.price_monitor:
         logger.debug("price monitor selected: returning")
         asyncio.run(
             price_monitor.price_monitor(
                 feed_data=args.feeds,
-                kupo=args.kupo,
+                use_kupo=args.kupo,
                 local=args.local,
             )
         )
         sys.exit(0)
+    mode = hour_bound if args.hour_boundary is True else interval_bound
+    logger.info("no publish: '%s'", args.nopublish)
+    logger.info("mode: '%s' threshold; '%s'", mode, args.threshold)
     asyncio.run(
         pubwatch(
             feeds_file=args.feeds,

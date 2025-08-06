@@ -42,6 +42,25 @@ def collate_latest_timestamps(on_chain_feed_data: list) -> dict:
     return res
 
 
+def collate_latest_prices(on_chain_feed_data: list) -> dict:
+    """Retrieve all the smallest intervals for all the feeds."""
+    res = {}
+    for item in on_chain_feed_data:
+        feed = get_feed_id(item[0]).upper()
+        on_chain_time = get_on_chain_time(item[1])
+        price = item[2]
+        try:
+            res[feed] = (
+                (on_chain_time, (price[0] / price[1]))
+                if res[feed][0] < on_chain_time
+                else res[feed]
+            )
+        except KeyError:
+            res[feed] = (on_chain_time, (price[0] / price[1]))
+    logger.info("existing on-chain feeds to compare: %s", len(set(res)))
+    return res
+
+
 def current_hour_rounder() -> int:
     """Rounds down to the previous hour based on the current time and
     returns a timestamp.

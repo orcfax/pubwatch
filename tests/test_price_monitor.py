@@ -4,7 +4,8 @@ import pytest
 
 from src.pubwatch.feed_helper import FeedSpec
 from src.pubwatch.price_monitor import (
-    compare_validator_data_websocket,
+    collate_kupo_data,
+    compare_validator_data_deviations,
     determine_deviation,
 )
 
@@ -213,9 +214,48 @@ compare_tests = [
 
 @pytest.mark.parametrize("websocket_data, expected", compare_tests)
 @pytest.mark.asyncio
-async def test_compare_validator_data_websocket(websocket_data, expected):
+async def test_compare_validator_data_deviations(websocket_data, expected):
     """Make sure that deviation data can be used to return pairs that
     need requesting.
     """
-    res = await compare_validator_data_websocket(deviation_test_feeds, websocket_data)
+    res = await compare_validator_data_deviations(deviation_test_feeds, websocket_data)
+    assert res == expected
+
+
+kupo_1 = [
+    ["CER/ADA-USD/3", 1754491804482, [1459789, 2000000]],  # latest data-point.
+    ["CER/ADA-USD/3", 1054488922998, [145617, 200000]],
+    ["CER/ADA-USD/3", 1004486104368, [72450253, 100000000]],
+    ["CER/ADA-DJED/3", 1054482504002, [7286147931, 10000000000]],
+    ["CER/ADA-DJED/3", 1754482504002, [1459750, 2000000]],  # latest data-point.
+    ["CER/ADA-DJED/3", 1004482504002, [7286147931, 10000000000]],
+    ["CER/ADA-iUSD/3", 1054482503950, [1822399613, 2500000000]],
+    ["CER/ADA-iUSD/3", 1004482503950, [1822399613, 2500000000]],
+    ["CER/ADA-iUSD/3", 1754482503950, [1459710, 2000000]],  # latest data-point.
+]
+
+collected = {
+    "ADA-DJED": 0.7405390751,
+    "ADA-IUSD": 0.7320001028,
+    "ADA-USD": 0.73433129,
+}
+
+res_1 = [
+    {"ADA-USD": [0.7298945, 0.73433129]},
+    {"ADA-DJED": [0.729875, 0.7405390751]},
+    {"ADA-IUSD": [0.729855, 0.7320001028]},
+]
+
+
+kupo_collate_tests = [({}, {}, []), (kupo_1, collected, res_1)]
+
+
+@pytest.mark.parametrize("on_chain, latest_available, expected", kupo_collate_tests)
+@pytest.mark.asyncio
+async def test_collate_kupo_data(on_chain, latest_available, expected):
+    """Provide some integration testing for kupo as an external service.
+    These tests ensure that we order kupo data correctly and that the
+    comparison data is returned correctly.
+    """
+    res = await collate_kupo_data(on_chain, latest_available)
     assert res == expected

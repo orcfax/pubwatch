@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 KUPO_URL: Final[str] = os.environ.get("KUPO_URL")
 
+FSP_POLICY: Final[str] = os.environ.get("FSP_POLICY")
+VALIDITY_TOKEN: Final[str] = os.environ.get("VALIDITY_TOKEN")
+
 # Additional vars.
 SLOTFILE: Final[str] = "pubwatch_slotfile"
 
@@ -23,6 +26,10 @@ class PubWatchException(Exception):
     """Sensible exception to return if there's a problem with this
     script.
     """
+
+
+class KupoError(Exception):
+    """To raise when there's a problem connecting to Kupo"""
 
 
 async def unwrap_cbor(data: cbor2.CBORTag, unwrapped: list) -> Union[list | dict]:
@@ -56,7 +63,7 @@ async def process_cbor(data: str) -> dict:
 async def get_datum(datum_hash: str) -> list:
     """Get the datum from Kupo."""
     datums_url = f"{KUPO_URL}/datums/{datum_hash}"
-    datum = requests.get(datums_url, timeout=30)
+    datum = requests.get(datums_url, timeout=10)
     res = datum.json()
     cbor = await process_cbor(res["datum"])
     unwrapped = await unwrap_cbor(cbor, [])
@@ -100,7 +107,7 @@ async def get_policy_from_fsp(fsp_policy_id: str, validity_token_name: str):
 
     """
     matches_url = f"{KUPO_URL}/matches/*?policy_id={fsp_policy_id}&asset_name={validity_token_name}&unspent"
-    matches = requests.get(matches_url, timeout=30)
+    matches = requests.get(matches_url, timeout=10)
     res = matches.json()
     datum_hash = res[0]["datum_hash"]
     datums_url = f"{KUPO_URL}/datums/{datum_hash}"
@@ -113,7 +120,15 @@ async def get_policy_from_fsp(fsp_policy_id: str, validity_token_name: str):
 async def get_slot() -> str:
     """Retrieve and store slot somewhere for future reference. Return
     previous slot as a reference point for UTxO retrieval functions."""
-    health = requests.get(f"{KUPO_URL}/health", timeout=30)
+    try:
+        health = requests.get(f"{KUPO_URL}/health", timeout=10)
+    except (
+        requests.exceptions.ConnectTimeout,
+        requests.exceptions.MissingSchema,
+        requests.exceptions.ReadTimeout,
+        requests.exceptions.ConnectionError,
+    ) as err:
+        raise KupoError(f"problem connecting to kupo: {err}") from err
     slot = health.headers["X-Most-Recent-Checkpoint"]
     previous_slot = "0"
     try:

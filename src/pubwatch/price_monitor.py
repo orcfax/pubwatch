@@ -7,6 +7,8 @@ Kupo isn't available, it can use data from its connection to the
 Orcfax validator database.
 """
 
+# pylint: disable=R0914
+
 import json
 import logging
 import os
@@ -20,12 +22,14 @@ import websockets
 from tenacity import retry, wait_exponential
 
 try:
+    import compare
     import feed_helper
+    import kupo
 except ModuleNotFoundError:
     try:
-        from src.pubwatch import feed_helper
+        from src.pubwatch import compare, feed_helper, kupo
     except ModuleNotFoundError:
-        from price_monitor import feed_helper
+        from price_monitor import compare, feed_helper, kupo
 
 
 logger = logging.getLogger(__name__)
@@ -119,7 +123,41 @@ def determine_deviation(values: list[float]) -> float:
     return orcfax_round(percentage)
 
 
-async def compare_validator_data_websocket(feeds: dict, data: dict):
+async def get_latest_collected(monitor_url: str, feeds_to_request: dict):
+    """Using the montioring endpoint list only the latest collected."""
+    data = await connect_to_websocket(monitor_url, feeds_to_request, True)
+    if data.get("error"):
+        logger.error("error in websocket response: %s", data.get("error"))
+        return
+    latest_collected = {}
+    for item in data.get("data", []):
+        pair = list(item.keys())[0]
+        if pair not in feeds_to_request:
+            continue
+        values = list(item.values())[0]
+        if not values:
+            continue
+        latest_collected[pair] = values[1]
+    return latest_collected
+
+
+async def collate_kupo_data(on_chain_feed_data: dict, latest_collected: dict):
+    """Collate kupo data and forrmat it against known structures."""
+    latest_prices_on_chain = compare.collate_latest_prices(
+        on_chain_feed_data=on_chain_feed_data
+    )
+    comparison_data = []
+    for key, value in latest_prices_on_chain.items():
+        pair = key.replace("CER/", "")
+        on_chain_latest = value[1]
+        if pair not in latest_collected:
+            continue
+        latest_available = latest_collected[pair]
+        comparison_data.append({pair: [on_chain_latest, latest_available]})
+    return comparison_data
+
+
+async def compare_validator_data_deviations(feeds: dict, data: dict):
     """Compare data from the Orcfax validator and return a list of
     feeds to request if needed.
 
@@ -188,31 +226,62 @@ async def request_deviations_ws(monitor_url: str, feeds: dict, local: bool):
     if data.get("error"):
         logger.error("error in websocket response: %s", data.get("error"))
         return
-    pairs_to_request = await compare_validator_data_websocket(feeds, data)
-    if not pairs_to_request:
-        logger.info("not requesting any updated pairs...")
+    pairs_to_request = await compare_validator_data_deviations(feeds, data)
+    if not pairs_to_request.get("feeds"):
+        logger.info("not requesting any updated pairs from websocket...")
         return
     await request_new_prices(pairs_to_request=pairs_to_request, local=local)
 
 
-async def request_deviations_kupo(kupo_url: str, feeds: dict, local: bool):
+async def request_deviations_kupo(monitor_url: str, feeds: dict, local: bool):
     """Request published_unpublished prices for the feeds in our
     given feeds list from kupo. Work out deviation and request
     the required values.
     """
     logging.info("using kupo for price-monitoring")
+    try:
+        _ = await kupo.get_slot()
+    except kupo.KupoError as err:
+        raise kupo.KupoError(f"{err}") from err
+    except kupo.PubWatchException:
+        # Ignore this as it's primarily used by pubwatch.
+        pass
+    fs_policy_id = await kupo.get_policy_from_fsp(
+        fsp_policy_id=kupo.FSP_POLICY,
+        validity_token_name=kupo.VALIDITY_TOKEN,
+    )
+    logger.info("fs policy ID: '%s'", fs_policy_id)
+    feeds_to_request = json.dumps({"feed_ids": [feed.pair for feed in feeds]})
+    latest_collected = await get_latest_collected(monitor_url, feeds_to_request)
+    if not latest_collected:
+        return
+    on_chain_feed_data = await kupo.get_latest_feed_data(fs_policy_id=fs_policy_id)
+    comparison_data = await collate_kupo_data(on_chain_feed_data, latest_collected)
+    pairs_to_request = await compare_validator_data_deviations(
+        feeds, {"error": None, "data": comparison_data}
+    )
+    if not pairs_to_request.get("feeds"):
+        logger.info("not requesting any updated pairs from kupo...")
+        return
+    await request_new_prices(pairs_to_request=pairs_to_request, local=local)
 
 
-async def price_monitor(feed_data: str, kupo: bool, local: bool = False):
+async def price_monitor(feed_data: str, use_kupo: bool, local: bool = False):
     """Monitor prices on-chain and update based on `feed_data`."""
     monitor_url = MONITOR_URL
     feeds = await feed_helper.read_feeds_file(feeds_file=feed_data)
     try:
         while True:
-            if not kupo:
+            if not use_kupo:
                 await request_deviations_ws(monitor_url, feeds, local)
             else:
-                await request_deviations_kupo(monitor_url, feeds, local)
+                try:
+                    await request_deviations_kupo(monitor_url, feeds, local)
+                except kupo.KupoError as err:
+                    logger.error(
+                        "problem connecting to kupo falling back on websocket: %s", err
+                    )
+                    await request_deviations_ws(monitor_url, feeds, local)
             logging.info("going to sleep, polling in: '%s' seconds", POLLING_TIME)
             time.sleep(POLLING_TIME)
             continue
