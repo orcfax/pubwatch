@@ -263,6 +263,7 @@ async def request_deviations_kupo(monitor_url: str, feeds: dict, local: bool):
     if not pairs_to_request.get("feeds"):
         logger.info("not requesting any updated pairs from kupo...")
         return
+    logger.info("pairs to request: %s", pairs_to_request)
     await request_new_prices(pairs_to_request=pairs_to_request, local=local)
 
 
