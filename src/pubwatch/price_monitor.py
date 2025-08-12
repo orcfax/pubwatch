@@ -75,7 +75,7 @@ async def connect_to_websocket(ws_url: str, msg_to_send: str, local: bool):
         ) as websocket:
             logger.info("connected to websocket")
             await websocket.send(msg_to_send)
-            logger.info(msg_to_send)
+            logger.info("sending request: %s", msg_to_send)
             msg = await websocket.recv()
             try:
                 return json.loads(msg)
