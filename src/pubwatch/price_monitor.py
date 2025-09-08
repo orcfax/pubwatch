@@ -123,9 +123,9 @@ def determine_deviation(values: list[float]) -> float:
     return orcfax_round(percentage)
 
 
-async def get_latest_collected(monitor_url: str, feeds_to_request: dict):
+async def get_latest_collected(monitor_url: str, feeds_to_request: dict, local: bool):
     """Using the montioring endpoint list only the latest collected."""
-    data = await connect_to_websocket(monitor_url, feeds_to_request, True)
+    data = await connect_to_websocket(monitor_url, feeds_to_request, local)
     if data.get("error"):
         logger.error("error in websocket response: %s", data.get("error"))
         return
@@ -252,7 +252,7 @@ async def request_deviations_kupo(monitor_url: str, feeds: dict, local: bool):
     )
     logger.info("fs policy ID: '%s'", fs_policy_id)
     feeds_to_request = json.dumps({"feed_ids": [feed.pair for feed in feeds]})
-    latest_collected = await get_latest_collected(monitor_url, feeds_to_request)
+    latest_collected = await get_latest_collected(monitor_url, feeds_to_request, local)
     if not latest_collected:
         return
     on_chain_feed_data = await kupo.get_latest_feed_data(fs_policy_id=fs_policy_id)
