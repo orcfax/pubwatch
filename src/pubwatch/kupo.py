@@ -117,7 +117,7 @@ async def get_policy_from_fsp(fsp_policy_id: str, validity_token_name: str):
     return binascii.hexlify(cbor).decode()
 
 
-async def get_slot() -> str:
+async def get_slot(price_monitor: bool = False) -> str:
     """Retrieve and store slot somewhere for future reference. Return
     previous slot as a reference point for UTxO retrieval functions."""
     try:
@@ -140,6 +140,10 @@ async def get_slot() -> str:
         pass
     if int(slot) <= int(previous_slot):
         raise PubWatchException("slot hasn't changed since last update")
+    if price_monitor:
+        # Don't write when we're looking through the lens of the
+        # price monitor.
+        return previous_slot
     with open(
         os.path.join(tempfile.gettempdir(), SLOTFILE), "w", encoding="utf-8"
     ) as slot_file:

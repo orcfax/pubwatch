@@ -240,12 +240,13 @@ async def request_deviations_kupo(monitor_url: str, feeds: dict, local: bool):
     """
     logging.info("using kupo for price-monitoring")
     try:
-        _ = await kupo.get_slot()
+        _ = await kupo.get_slot(price_monitor=True)
     except kupo.KupoError as err:
         raise kupo.KupoError(f"{err}") from err
     except kupo.PubWatchException:
-        # Ignore this as it's primarily used by pubwatch.
-        pass
+        # Return this time as another process (pubwatch) has likely
+        # just checked Kupo and we don't need to double our effort.
+        return
     fs_policy_id = await kupo.get_policy_from_fsp(
         fsp_policy_id=kupo.FSP_POLICY,
         validity_token_name=kupo.VALIDITY_TOKEN,
