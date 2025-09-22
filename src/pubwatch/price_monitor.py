@@ -71,6 +71,7 @@ async def connect_to_websocket(ws_url: str, msg_to_send: str, local: bool):
         async with websockets.connect(
             validator_connection,
             user_agent_header=get_user_agent(),
+            ping_timeout=None,
             ssl=ssl_context,
         ) as websocket:
             logger.info("connected to websocket")
