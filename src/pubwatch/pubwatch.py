@@ -71,7 +71,7 @@ def get_user_agent() -> str:
     return "orcfax-pubwatch/0.0.0"
 
 
-async def connect_to_websocket(ws_uri: str, msg_to_send: str, local: bool):
+async def connect_to_websocket(ws_uri: str, msg_to_send: str, local: bool = False):
     """Connect to the websocket and parse the response."""
     validator_connection = ws_uri
     ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -114,7 +114,7 @@ async def connect_to_websocket(ws_uri: str, msg_to_send: str, local: bool):
         logger.error("connection to: '%s' made: %s", ws_uri, err)
 
 
-async def request_new_prices(pairs_to_request: dict, local: bool):
+async def request_new_prices(pairs_to_request: dict, local: bool = False):
     """Send a validation request to the server to ask for a new price
     to be placed on-chain.
     """
@@ -325,6 +325,7 @@ def main():
             price_monitor.price_monitor(
                 feed_data=args.feeds,
                 use_kupo=args.kupo,
+                nopublish=args.nopublish,
                 local=args.local,
             )
         )

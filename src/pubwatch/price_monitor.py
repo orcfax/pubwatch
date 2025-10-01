@@ -61,7 +61,7 @@ def _retry_logging(retry_state):
 
 
 @retry(wait=wait_exponential(multiplier=1, min=4, max=30), after=_retry_logging)
-async def connect_to_websocket(ws_url: str, msg_to_send: str, local: bool):
+async def connect_to_websocket(ws_url: str, msg_to_send: str, local: bool = False):
     """Connect to the websocket and parse the response."""
     validator_connection = ws_url
     ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -124,7 +124,9 @@ def determine_deviation(values: list[float]) -> float:
     return orcfax_round(percentage)
 
 
-async def get_latest_collected(monitor_url: str, feeds_to_request: dict, local: bool):
+async def get_latest_collected(
+    monitor_url: str, feeds_to_request: dict, local: bool = False
+):
     """Using the montioring endpoint list only the latest collected."""
     data = await connect_to_websocket(monitor_url, feeds_to_request, local)
     if data.get("error"):
@@ -208,7 +210,7 @@ async def compare_validator_data_deviations(feeds: dict, data: dict):
     return {"feeds": pairs_to_request}
 
 
-async def request_new_prices(pairs_to_request: dict, local: bool):
+async def request_new_prices(pairs_to_request: dict, local: bool = False):
     """Send a validation request to the server to ask for a new price
     to be placed on-chain.
     """
@@ -217,7 +219,9 @@ async def request_new_prices(pairs_to_request: dict, local: bool):
     return
 
 
-async def request_deviations_ws(monitor_url: str, feeds: dict, local: bool):
+async def request_deviations_ws(
+    monitor_url: str, feeds: dict, nopublish: bool, local: bool = False
+):
     """Request published_unpublished prices for the feeds in our
     given feeds list from the websocket. Work out deviation and
     request the required values.
@@ -231,10 +235,16 @@ async def request_deviations_ws(monitor_url: str, feeds: dict, local: bool):
     if not pairs_to_request.get("feeds"):
         logger.info("not requesting any updated pairs from websocket...")
         return
-    await request_new_prices(pairs_to_request=pairs_to_request, local=local)
+    if not nopublish:
+        await request_new_prices(pairs_to_request=pairs_to_request, local=local)
+        return
+    logger.info("no publish flag is set, returning from script...")
+    return
 
 
-async def request_deviations_kupo(monitor_url: str, feeds: dict, local: bool):
+async def request_deviations_kupo(
+    monitor_url: str, feeds: dict, nopublish: bool, local: bool = False
+):
     """Request published_unpublished prices for the feeds in our
     given feeds list from kupo. Work out deviation and request
     the required values.
@@ -266,25 +276,41 @@ async def request_deviations_kupo(monitor_url: str, feeds: dict, local: bool):
         logger.info("not requesting any updated pairs from kupo...")
         return
     logger.info("pairs to request: %s", pairs_to_request)
-    await request_new_prices(pairs_to_request=pairs_to_request, local=local)
+    if not nopublish:
+        await request_new_prices(pairs_to_request=pairs_to_request, local=local)
+        return
+    logger.info("no publish flag is set, returning from script...")
+    return
 
 
-async def price_monitor(feed_data: str, use_kupo: bool, local: bool = False):
+async def price_monitor(
+    feed_data: str, use_kupo: bool, nopublish: bool, local: bool = False
+):
     """Monitor prices on-chain and update based on `feed_data`."""
     monitor_url = MONITOR_URL
     feeds = await feed_helper.read_feeds_file(feeds_file=feed_data)
     try:
         while True:
             if not use_kupo:
-                await request_deviations_ws(monitor_url, feeds, local)
+                await request_deviations_ws(
+                    monitor_url=monitor_url,
+                    feeds=feeds,
+                    nopublish=nopublish,
+                    local=local,
+                )
             else:
                 try:
-                    await request_deviations_kupo(monitor_url, feeds, local)
+                    await request_deviations_kupo(
+                        monitor_url=monitor_url,
+                        feeds=feeds,
+                        nopublish=nopublish,
+                        local=local,
+                    )
                 except kupo.KupoError as err:
                     logger.error(
                         "problem connecting to kupo falling back on websocket: %s", err
                     )
-                    await request_deviations_ws(monitor_url, feeds, local)
+                    await request_deviations_ws(monitor_url, feeds, nopublish, local)
             logging.info("going to sleep, polling in: '%s' seconds", POLLING_TIME)
             time.sleep(POLLING_TIME)
             continue
