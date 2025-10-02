@@ -206,7 +206,7 @@ async def compare_validator_data_deviations(feeds: dict, data: dict):
             deviations[pair],
             deviation,
         )
-        pairs_to_request.append(pair)
+        pairs_to_request.append(pair.upper())
     return {"feeds": pairs_to_request}
 
 
@@ -235,6 +235,7 @@ async def request_deviations_ws(
     if not pairs_to_request.get("feeds"):
         logger.info("not requesting any updated pairs from websocket...")
         return
+    logger.info("pairs to request: %s", pairs_to_request)
     if not nopublish:
         await request_new_prices(pairs_to_request=pairs_to_request, local=local)
         return

@@ -221,7 +221,7 @@ async def pubwatch(
         return
     logger.debug("label gaps: %s", label_based_gaps)
     logger.debug("time gaps: %s", pairs_to_request)
-    pairs_to_request = pairs_to_request + label_based_gaps
+    pairs_to_request = [ pair.upper() for pair in pairs_to_request + label_based_gaps]
     logger.info("we need to request the following feeds: %s", pairs_to_request)
     req = json.dumps({"feeds": pairs_to_request})
     if not nopublish:
