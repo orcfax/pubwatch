@@ -138,8 +138,11 @@ async def get_slot(price_monitor: bool = False) -> str:
             previous_slot = slot_file.read().strip()
     except FileNotFoundError:
         pass
-    if int(slot) <= int(previous_slot):
-        raise PubWatchException("slot hasn't changed since last update")
+    try:
+        if int(slot) <= int(previous_slot):
+            raise PubWatchException("slot hasn't changed since last update")
+    except ValueError as err:
+        raise PubWatchException(f"slot information cannot be read: {err}") from err
     if price_monitor:
         # Don't write when we're looking through the lens of the
         # price monitor.
