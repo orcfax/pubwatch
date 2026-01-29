@@ -50,13 +50,15 @@ def collate_latest_prices(on_chain_feed_data: list) -> dict:
         on_chain_time = get_on_chain_time(item[1])
         price = item[2]
         try:
-            res[feed] = (
-                (on_chain_time, (price[0] / price[1]))
-                if res[feed][0] < on_chain_time
-                else res[feed]
-            )
+            if price[1] != 0:
+                res[feed] = (
+                    (on_chain_time, (price[0] / price[1]))
+                    if res[feed][0] < on_chain_time
+                    else res[feed]
+                )
         except KeyError:
-            res[feed] = (on_chain_time, (price[0] / price[1]))
+            if price[1] != 0:
+                res[feed] = (on_chain_time, (price[0] / price[1]))
     logger.info("existing on-chain feeds to compare: %s", len(set(res)))
     return res
 
@@ -106,7 +108,7 @@ def hour_delta_threshold(latest_timestamp: int, interval: int, threshold: int):
         interval - threshold,
     )
     logger.debug("publish: '%s'", now - then >= interval - threshold)
-    return now - then >= interval
+    return now - then >= interval - threshold
 
 
 def get_delta(timestamp_1: int, timestamp_2: int) -> int:

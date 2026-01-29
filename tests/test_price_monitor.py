@@ -98,69 +98,6 @@ deviation_test_feeds = [
     ),
 ]
 
-deviation_test_feeds = [
-    FeedSpec(
-        pair="ADA-BTC",
-        label="ADA-BTC",
-        interval=3600,
-        deviation=1,
-        source="",
-        calculation="",
-        status="",
-        type="",
-    ),
-    FeedSpec(
-        pair="ADA-DJED",
-        label="ADA-DJED",
-        interval=3600,
-        deviation=2,
-        source="",
-        calculation="",
-        status="",
-        type="",
-    ),
-    FeedSpec(
-        pair="ADA-IUSD",
-        label="ADA-IUSD",
-        interval=3600,
-        deviation=5,
-        source="",
-        calculation="",
-        status="",
-        type="",
-    ),
-    FeedSpec(
-        pair="ADA-USD",
-        label="ADA-USD",
-        interval=3600,
-        deviation=1,
-        source="",
-        calculation="",
-        status="",
-        type="",
-    ),
-    FeedSpec(
-        pair="ADA-USDM",
-        label="ADA-USDM",
-        interval=3600,
-        deviation=1,
-        source="",
-        calculation="",
-        status="",
-        type="",
-    ),
-    FeedSpec(
-        pair="AGIX-ADA",
-        label="AGIX-ADA",
-        interval=3600,
-        deviation=1,
-        source="",
-        calculation="",
-        status="",
-        type="",
-    ),
-]
-
 
 price_monitor_data_1 = {
     # Test live values at time of writing.

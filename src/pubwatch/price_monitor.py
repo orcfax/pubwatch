@@ -9,12 +9,12 @@ Orcfax validator database.
 
 # pylint: disable=R0914
 
+import asyncio
 import json
 import logging
 import os
 import ssl
 import sys
-import time
 from typing import Final
 
 import certifi
@@ -120,12 +120,15 @@ def determine_deviation(values: list[float]) -> float:
     if not values:
         # There are no values to compare.
         return 0.0
+    if values[0] == 0:
+        # Cannot calculate percentage change from zero.
+        return 0.0
     percentage = abs(((values[1] - values[0]) / values[0]) * 100)
     return orcfax_round(percentage)
 
 
 async def get_latest_collected(
-    monitor_url: str, feeds_to_request: dict, local: bool = False
+    monitor_url: str, feeds_to_request: str, feed_pairs: list, local: bool = False
 ):
     """Using the montioring endpoint list only the latest collected."""
     data = await connect_to_websocket(monitor_url, feeds_to_request, local)
@@ -135,7 +138,7 @@ async def get_latest_collected(
     latest_collected = {}
     for item in data.get("data", []):
         pair = list(item.keys())[0]
-        if pair not in feeds_to_request:
+        if pair not in feed_pairs:
             continue
         values = list(item.values())[0]
         if not values:
@@ -226,8 +229,9 @@ async def request_deviations_ws(
     given feeds list from the websocket. Work out deviation and
     request the required values.
     """
-    feeds_to_request = json.dumps({"feed_ids": [feed.pair for feed in feeds]})
-    data = await connect_to_websocket(monitor_url, feeds_to_request, True)
+    feed_pairs = [feed.pair for feed in feeds]
+    feeds_to_request = json.dumps({"feed_ids": feed_pairs})
+    data = await connect_to_websocket(monitor_url, feeds_to_request, local)
     if data.get("error"):
         logger.error("error in websocket response: %s", data.get("error"))
         return
@@ -264,8 +268,11 @@ async def request_deviations_kupo(
         validity_token_name=kupo.VALIDITY_TOKEN,
     )
     logger.info("fs policy ID: '%s'", fs_policy_id)
-    feeds_to_request = json.dumps({"feed_ids": [feed.pair for feed in feeds]})
-    latest_collected = await get_latest_collected(monitor_url, feeds_to_request, local)
+    feed_pairs = [feed.pair for feed in feeds]
+    feeds_to_request = json.dumps({"feed_ids": feed_pairs})
+    latest_collected = await get_latest_collected(
+        monitor_url, feeds_to_request, feed_pairs, local
+    )
     if not latest_collected:
         return
     on_chain_feed_data = await kupo.get_latest_feed_data(fs_policy_id=fs_policy_id)
@@ -313,7 +320,7 @@ async def price_monitor(
                     )
                     await request_deviations_ws(monitor_url, feeds, nopublish, local)
             logging.info("going to sleep, polling in: '%s' seconds", POLLING_TIME)
-            time.sleep(POLLING_TIME)
+            await asyncio.sleep(POLLING_TIME)
             continue
     except KeyboardInterrupt:
         print("", file=sys.stderr)

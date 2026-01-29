@@ -34,7 +34,7 @@ except ModuleNotFoundError:
     try:
         from src.pubwatch import compare, feed_helper, kupo, price_monitor
     except ModuleNotFoundError:
-        from pubwatch import compare, feed_helper, price_monitor
+        from pubwatch import compare, feed_helper, kupo, price_monitor
 
 
 logging.basicConfig(
@@ -60,7 +60,7 @@ VALIDATION_REQUEST_URI: Final[str] = f"{VALIDATOR_URI}validate_on_demand/"
 
 # Interval threshold to compare on-chain time with the configured
 # interval.
-INTERVAL_THRESHOLD: Final[str] = 1
+INTERVAL_THRESHOLD: Final[int] = 1
 
 # Default value to use when batching is configured. (900s == 15 minutes).
 BATCH_DEFAULT: Final[int] = 900

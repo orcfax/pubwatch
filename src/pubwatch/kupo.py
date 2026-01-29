@@ -67,6 +67,8 @@ async def get_datum(datum_hash: str) -> list:
     res = datum.json()
     cbor = await process_cbor(res["datum"])
     unwrapped = await unwrap_cbor(cbor, [])
+    if not unwrapped:
+        return []
     return unwrapped[0]
 
 
@@ -109,6 +111,10 @@ async def get_policy_from_fsp(fsp_policy_id: str, validity_token_name: str):
     matches_url = f"{KUPO_URL}/matches/*?policy_id={fsp_policy_id}&asset_name={validity_token_name}&unspent"
     matches = requests.get(matches_url, timeout=10)
     res = matches.json()
+    if not res:
+        raise PubWatchException(
+            f"no matches found for policy_id={fsp_policy_id}, asset_name={validity_token_name}"
+        )
     datum_hash = res[0]["datum_hash"]
     datums_url = f"{KUPO_URL}/datums/{datum_hash}"
     datum = requests.get(datums_url, timeout=30)
@@ -133,7 +139,7 @@ async def get_slot(price_monitor: bool = False) -> str:
     previous_slot = "0"
     try:
         with open(
-            os.path.join(tempfile.gettempdir(), SLOTFILE), "r", encoding="utf=8"
+            os.path.join(tempfile.gettempdir(), SLOTFILE), "r", encoding="utf-8"
         ) as slot_file:
             previous_slot = slot_file.read().strip()
     except FileNotFoundError:
