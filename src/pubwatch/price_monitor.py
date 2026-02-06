@@ -19,7 +19,7 @@ from typing import Final
 
 import certifi
 import websockets
-from tenacity import retry, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 try:
     import compare
@@ -243,6 +243,11 @@ async def request_deviations_ws(
     return
 
 
+@retry(
+    wait=wait_exponential(multiplier=1, min=4, max=30),
+    stop=stop_after_attempt(15),
+    after=_retry_logging,
+)
 async def request_deviations_kupo(
     monitor_url: str, feeds: dict, nopublish: bool, local: bool = False
 ):
