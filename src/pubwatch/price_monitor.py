@@ -227,7 +227,7 @@ async def request_deviations_ws(
     request the required values.
     """
     feeds_to_request = json.dumps({"feed_ids": [feed.pair for feed in feeds]})
-    data = await connect_to_websocket(monitor_url, feeds_to_request, True)
+    data = await connect_to_websocket(monitor_url, feeds_to_request, local)
     if data.get("error"):
         logger.error("error in websocket response: %s", data.get("error"))
         return
